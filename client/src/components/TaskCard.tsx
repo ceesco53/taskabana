@@ -97,7 +97,8 @@ export default function TaskCard({
           onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
         />
         <DueBadge iso={task.due} />
-        {onDelete && <button title="Delete task" onClick={onDelete}>🗑️</button>}
+        {onDelete && <button className="icon-btn danger" title="Delete task" 
+          aria-label="Delete task" onClick={onDelete}>🗑️</button>}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
@@ -292,14 +293,18 @@ function SubtaskChip({
           color: 'var(--fg)',
         }}
       />
-      {onDeleteSubtask && (
-        <button
-          title="Delete subtask"
-          onClick={() => onDeleteSubtask(st.id)}
-        >
-          🗑️
-        </button>
-      )}
+      <div className="actions">
+        {onDeleteSubtask && (
+          <button
+            className="icon-btn danger"
+            title="Delete subtask"
+            aria-label="Delete subtask"
+            onClick={() => onDeleteSubtask(st.id)}
+          >
+            🗑️
+          </button>
+        )}
+      </div>
     </div>
   )
 }
