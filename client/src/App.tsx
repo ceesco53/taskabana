@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { getSession, login, logout, getTaskLists, getTasks, patchTask, getUserInfo, createTask, deleteTask, moveTask, pingServer } from './api'
 import { categorize, applyCategory, type GTask, type ColumnKey } from './kanban'
+import { useToast } from './hooks/useToast'
 import KanbanColumn from './components/Column'
 import ThemeSwitcher from './components/ThemeSwitcher'
 
@@ -19,6 +20,9 @@ export default function App() {
   // new banner states
   const [serverDown, setServerDown] = useState(false)
   const [initTried, setInitTried] = useState(false)
+
+  // add toast
+  const toast = useToast()
 
   useEffect(() => {
     (async () => {
@@ -157,23 +161,26 @@ export default function App() {
         await moveTask(listId, taskId, prev)
       }
       refreshTasks()
+      toast('Updated')
     } catch (e) {
       console.error(e)
-      alert('Update failed')
+      toast('Update failed')
     }
   }
 
-  async function onAdd(column: ColumnKey) {
+  async function onAdd(column: ColumnKey, quickTitle?: string) {
     if (!listId) return
-    const title = prompt(`New task title (${column})?`)
-    if (!title) return
+    let title = quickTitle
+    if (!title) {
+      title = prompt(`New task title (${column})?`) || ''
+    }
+    if (!title.trim()) return
     let dueInput = ''
-    if (confirm('Add a due date?')) dueInput = prompt('Enter due date (YYYY-MM-DD) or leave blank', '') || ''
+    if (!quickTitle && confirm('Add a due date?')) dueInput = prompt('Enter due date (YYYY-MM-DD) or leave blank', '') || ''
     const notesBase = column === 'icebucket' ? '#icebucket' : ''
-    const task: any = { title, notes: notesBase || undefined }
+    const task: any = { title: title.trim(), notes: notesBase || undefined }
     if (dueInput) task.due = `${dueInput}T12:00:00.000Z`
-    if (column === 'completed') task.status = 'completed'
-    else task.status = 'needsAction'
+    task.status = column === 'completed' ? 'completed' : 'needsAction'
     try {
       const created = await createTask(listId, task)
       if (sortMode === 'manual') {
@@ -181,9 +188,9 @@ export default function App() {
         await moveTask(listId, created.id, prev)
       }
       refreshTasks()
+      toast('Task created')
     } catch (e) {
-      console.error(e)
-      alert('Create failed')
+      console.error(e); toast('Create failed')
     }
   }
 
@@ -193,9 +200,10 @@ export default function App() {
     try {
       await deleteTask(listId, taskId)
       refreshTasks()
+      toast('Task deleted')
     } catch (e) {
       console.error(e)
-      alert('Delete failed')
+      toast('Delete failed')
     }
   }
 
@@ -208,14 +216,27 @@ export default function App() {
       dueInput = prompt('Enter due date (YYYY-MM-DD) or leave blank', '') || ''
     }
     const notesBase = column === 'icebucket' ? '#icebucket' : ''
-    const task: any = { title, notes: notesBase || undefined, status: column === 'completed' ? 'completed' : 'needsAction' }
+    const task: any = {
+      title,
+      notes: notesBase || undefined,
+      status: column === 'completed' ? 'completed' : 'needsAction'
+    }
     if (dueInput) task.due = `${dueInput}T12:00:00.000Z`
+
     try {
       const prev = (childrenByParent[parentId] || []).slice(-1)[0]?.id
-      await createTask(listId, task, { parent: parentId, previous: prev })
+      const created = await createTask(listId, task, { parent: parentId, previous: prev })
+
+      // Fallback: if insert didn't come back with the expected parent,
+      // explicitly move it under the parent (and to the end).
+      if ((created as any)?.parent !== parentId) {
+        await moveTask(listId, created.id, prev, parentId)
+      }
+
       refreshTasks()
     } catch (e) {
-      console.error(e); alert('Create subtask failed')
+      console.error(e)
+      toast('Create subtask failed')
     }
   }
 
@@ -226,7 +247,7 @@ export default function App() {
       await deleteTask(listId, taskId)
       refreshTasks()
     } catch (e) {
-      console.error(e); alert('Delete failed')
+      console.error(e); toast('Delete failed')
     }
   }
 
@@ -237,7 +258,7 @@ export default function App() {
       await moveTask(listId, taskId, prev, parentId)
       refreshTasks()
     } catch (e) {
-      console.error(e); alert('Reorder failed')
+      console.error(e); toast('Reorder failed')
     }
   }
 
@@ -252,7 +273,7 @@ export default function App() {
       await moveTask(listId, taskId, prev, parentId)
       refreshTasks()
     } catch (e) {
-      console.error(e); alert('Reorder failed')
+      console.error(e); toast('Reorder failed')
     }
   }
 

@@ -235,10 +235,10 @@ app.get('/api/tasks', ensureAuthed, async (req, res) => {
     const resp = await axios.get(`${TASKS_API_BASE}/lists/${encodeURIComponent(tasklist)}/tasks`, {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
       params: {
-        showCompleted: true,
-        showHidden: true,   // include hidden parents/subtasks
-        showDeleted: false,
-        maxResults: 200
+      showCompleted: true,
+      showHidden: true,   // include hidden parents/subtasks
+      showDeleted: false,
+      maxResults: 200
       }
     });
     res.json(resp.data);
@@ -276,13 +276,34 @@ app.post('/api/tasks', ensureAuthed, async (req, res) => {
   try {
     await refreshAccessTokenIfNeeded(req);
     const tokens = req.session.tokens;
-    const resp = await axios.post(`${TASKS_API_BASE}/lists/${encodeURIComponent(tasklist)}/tasks`, task, {
-      headers: {
-        Authorization: `Bearer ${tokens.access_token}`,
-        'Content-Type': 'application/json'
+    const tasklist = req.body.tasklist
+    const task = req.body.task
+
+    // Build query params for Google Tasks insert
+    const params = new URLSearchParams()
+    if (req.body.parent) params.set('parent', req.body.parent)
+    if (req.body.previous) params.set('previous', req.body.previous)
+
+    // Debug so we can see what's being sent
+    console.log('Creating task with params:', {
+      parent: req.body.parent,
+      previous: req.body.previous,
+      tasklist
+    })
+
+    const resp = await axios.post(
+      `${TASKS_API_BASE}/lists/${encodeURIComponent(tasklist)}/tasks`,
+      task,
+      {
+        headers: {
+          Authorization: `Bearer ${tokens.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        params
       }
-    });
-    res.json(resp.data);
+    )
+
+    res.json(resp.data)
   } catch (e) {
     console.error(e?.response?.data || e.message);
     res.status(500).json({ error: 'Failed to create task' });

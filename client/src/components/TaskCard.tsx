@@ -4,6 +4,7 @@ import { patchTask } from '../api'
 import { toDateInputValue, fromDateInputValue } from '../utils'
 import Calendar from './Calendar'
 import { marked } from 'marked'
+import DueBadge from './DueBadge'
 
 type Props = {
   task: GTask
@@ -64,11 +65,30 @@ export default function TaskCard({
   return (
     <div
       className={`task ${dragging ? 'dragging' : ''}`}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        const card = e.currentTarget
+        if (e.key === 'ArrowDown') {
+          e.preventDefault()
+          let el = card.nextElementSibling as HTMLElement | null
+          while (el && !el.hasAttribute('data-card')) el = el.nextElementSibling as HTMLElement | null
+          el?.focus()
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault()
+          let el = card.previousElementSibling as HTMLElement | null
+          while (el && !el.hasAttribute('data-card')) el = el.previousElementSibling as HTMLElement | null
+          el?.focus()
+        }
+      }}
+      data-card
+      data-id={task.id}
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span className="drag-handle" aria-hidden>≡</span>
         <input
           style={{ fontWeight: 600, flex: 1, border: '1px solid var(--border)', borderRadius: 6, padding: '4px 6px', background: 'var(--bg)', color: 'var(--fg)' }}
           value={title}
@@ -76,6 +96,7 @@ export default function TaskCard({
           onBlur={saveTitle}
           onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
         />
+        <DueBadge iso={task.due} />
         {onDelete && <button title="Delete task" onClick={onDelete}>🗑️</button>}
       </div>
 
