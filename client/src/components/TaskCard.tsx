@@ -136,37 +136,49 @@ export default function TaskCard({
       ) : null}
 
       {/* Subtask lane with precise reorder drop-zones */}
-      {subtasks.length > 0 || onAddSubtask ? (
+      {/* Subtask lane with precise reorder drop-zones (ALWAYS stacked 1-per-line) */}
+      {(subtasks.length > 0 || onAddSubtask) ? (
         <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
           <div style={{ fontSize: 12, marginBottom: 6, color: 'var(--muted)' }}>Subtasks</div>
-          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 6, alignItems: 'center' }}>
-            {/* Drop at very start (before first) */}
-            <DropZone
-              beforeId={subtasks[0]?.id}
-              onDrop={(sid, beforeId) => onReorderSubtask && onReorderSubtask(sid, beforeId)}
-            />
+
+          <ul className="subtasks-list">
+            {/* Drop at start */}
+            <li className="subtask-drop">
+              <DropZone
+                stacked
+                beforeId={subtasks[0]?.id}
+                onDrop={(sid, beforeId) => onReorderSubtask && onReorderSubtask(sid, beforeId)}
+              />
+            </li>
+
             {subtasks.map((st, idx) => (
               <React.Fragment key={st.id}>
-                <SubtaskChip
-                  st={st}
-                  onSubDragStart={onSubDragStart}
-                  onDeleteSubtask={onDeleteSubtask}
-                />
-                {/* Drop between this chip and the next one */}
-                <DropZone
-                  beforeId={subtasks[idx + 1]?.id}
-                  onDrop={(sid, beforeId) => {
-                    if (!beforeId && onMoveSubtaskToEnd) {
-                      onMoveSubtaskToEnd(sid)
-                    } else if (onReorderSubtask) {
-                      onReorderSubtask(sid, beforeId)
-                    }
-                  }}
-                />
+                <li className="subtask-row">
+                  <SubtaskChip
+                    st={st}
+                    stacked
+                    onSubDragStart={onSubDragStart}
+                    onDeleteSubtask={onDeleteSubtask}
+                  />
+                </li>
+                <li className="subtask-drop">
+                  <DropZone
+                    stacked
+                    beforeId={subtasks[idx + 1]?.id}
+                    onDrop={(sid, beforeId) => {
+                      if (!beforeId && onMoveSubtaskToEnd) {
+                        onMoveSubtaskToEnd(sid)
+                      } else if (onReorderSubtask) {
+                        onReorderSubtask(sid, beforeId)
+                      }
+                    }}
+                  />
+                </li>
               </React.Fragment>
             ))}
-          </div>
-          <div className="footer-note">Drag a subtask chip into a dashed gap to reorder; drop after the last chip to send it to the end.</div>
+          </ul>
+
+          <div className="footer-note">Drag a subtask row into a dashed gap to reorder.</div>
         </div>
       ) : null}
     </div>
@@ -174,15 +186,38 @@ export default function TaskCard({
 }
 
 /** Thin dashed drop target used between subtask chips */
-function DropZone({ beforeId, onDrop }: { beforeId?: string, onDrop: (sid: string, beforeId?: string) => void }) {
+function DropZone({
+  beforeId,
+  onDrop,
+  stacked,
+}: {
+  beforeId?: string
+  onDrop: (sid: string, beforeId?: string) => void
+  stacked?: boolean
+}) {
   return (
     <div
-      onDragOver={e => e.preventDefault()}
-      onDrop={e => {
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
         const sid = e.dataTransfer.getData('text/subtaskId')
         if (sid) onDrop(sid, beforeId)
       }}
-      style={{ width: 14, height: 28, border: '1px dashed var(--border)', borderRadius: 6, flex: '0 0 auto' }}
+      style={
+        stacked
+          ? {
+              width: '100%',
+              height: 8,
+              border: '1px dashed var(--border)',
+              borderRadius: 6,
+            }
+          : {
+              width: 14,
+              height: 28,
+              border: '1px dashed var(--border)',
+              borderRadius: 6,
+              flex: '0 0 auto',
+            }
+      }
       title="Drop here"
     />
   )
@@ -192,49 +227,79 @@ function DropZone({ beforeId, onDrop }: { beforeId?: string, onDrop: (sid: strin
 function SubtaskChip({
   st,
   onSubDragStart,
-  onDeleteSubtask
+  onDeleteSubtask,
 }: {
-  st: GTask,
-  onSubDragStart: (e: React.DragEvent, sid: string) => void,
+  st: GTask
+  onSubDragStart: (e: React.DragEvent, sid: string) => void
   onDeleteSubtask?: (sid: string) => void
 }) {
   const [title, setTitle] = useState(st.title || '')
   const [due, setDue] = useState(toDateInputValue(st.due))
 
-  useEffect(() => { setTitle(st.title || '') }, [st.title])
-  useEffect(() => { setDue(toDateInputValue(st.due)) }, [st.due])
+  useEffect(() => {
+    setTitle(st.title || '')
+  }, [st.title])
+  useEffect(() => {
+    setDue(toDateInputValue(st.due))
+  }, [st.due])
 
   async function saveTitle() {
-    try { await patchTask((window as any).CURRENT_LIST_ID, st.id, { title }) } catch {}
+    try {
+      await patchTask((window as any).CURRENT_LIST_ID, st.id, { title })
+    } catch {}
   }
   async function saveDue(newVal: string) {
     const iso = fromDateInputValue(newVal)
-    try { await patchTask((window as any).CURRENT_LIST_ID, st.id, { due: iso }) } catch {}
+    try {
+      await patchTask((window as any).CURRENT_LIST_ID, st.id, { due: iso })
+    } catch {}
   }
 
   return (
     <div
       draggable
-      onDragStart={e => onSubDragStart(e, st.id)}
-      className="badge"
+      onDragStart={(e) => onSubDragStart(e, st.id)}
       title={st.notes || ''}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 8px' }}
+      className="subtask-chip"
     >
       <input
         value={title}
-        onChange={e => setTitle(e.target.value)}
+        onChange={(e) => setTitle(e.target.value)}
         onBlur={saveTitle}
-        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-        style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 4px', color: 'var(--fg)' }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter')
+            (e.target as HTMLInputElement).blur()
+        }}
+        style={{
+          background: 'transparent',
+          border: '1px solid var(--border)',
+          borderRadius: 6,
+          padding: '2px 4px',
+          color: 'var(--fg)',
+          flex: 1,
+        }}
       />
       <input
         type="date"
         value={due}
-        onChange={e => setDue(e.target.value)}
-        onBlur={e => saveDue(e.target.value)}
-        style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 4px', color: 'var(--fg)' }}
+        onChange={(e) => setDue(e.target.value)}
+        onBlur={(e) => saveDue(e.target.value)}
+        style={{
+          background: 'transparent',
+          border: '1px solid var(--border)',
+          borderRadius: 6,
+          padding: '2px 4px',
+          color: 'var(--fg)',
+        }}
       />
-      {onDeleteSubtask && <button title="Delete subtask" onClick={() => onDeleteSubtask(st.id)}>🗑️</button>}
+      {onDeleteSubtask && (
+        <button
+          title="Delete subtask"
+          onClick={() => onDeleteSubtask(st.id)}
+        >
+          🗑️
+        </button>
+      )}
     </div>
   )
 }

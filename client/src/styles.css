@@ -220,3 +220,18 @@ btn { border: 1px solid var(--border); padding: 6px 10px; border-radius: 10px; b
 .btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .btn.primary:hover { box-shadow: var(--shadow-2); transform: translateY(-1px); }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.subtasks-list { list-style: none; padding: 0; margin: 0; display: block; }
+.subtask-row { margin: 6px 0; }
+.subtask-drop { margin: 4px 0; }
+
+.subtask-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 100%;
+  background: var(--card);
+}

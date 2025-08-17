@@ -38,8 +38,7 @@ const SCOPES = [
 
 // ----- utils -----
 function base64url(input) {
-  return Buffer.from(input)
-    .toString('base64')
+  return Buffer.from(input).toString('base64')
     .replace(/=/g, '')
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
@@ -54,24 +53,19 @@ function genCodeChallenge(verifier) {
 // ----- middleware -----
 app.use(express.json())
 
-// CORS (useful if you ever hit the server directly from 5173; if you proxy in Vite, it’s harmless)
 app.use(
   cors({
     origin: ['http://localhost:5173'],
-    credentials: true
+    credentials: true,
   })
 )
 
-// Sessions
 app.use(
   session({
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: {
-      sameSite: 'lax',
-      secure: false // local dev over http
-    }
+    cookie: { sameSite: 'lax', secure: false }, // local http
   })
 )
 
@@ -93,6 +87,7 @@ app.get('/auth/login', (req, res) => {
   const code_challenge = genCodeChallenge(code_verifier)
 
   req.session.oauth = { state, code_verifier }
+
   const url = new URL(GOOGLE_AUTH)
   url.searchParams.set('client_id', GOOGLE_CLIENT_ID)
   url.searchParams.set('redirect_uri', REDIRECT_URI)
@@ -112,7 +107,7 @@ app.get('/auth/callback', async (req, res) => {
     const { code, state, error } = req.query
     if (error) {
       console.error('OAuth error:', error)
-      return res.redirect('/') // client will show signed-out state
+      return res.redirect('/')
     }
     if (!code || !state) return res.redirect('/')
 
@@ -134,7 +129,7 @@ app.get('/auth/callback', async (req, res) => {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     })
 
-    req.session.tokens = tokenResp.data // {access_token, refresh_token?, expires_in, id_token, ...}
+    req.session.tokens = tokenResp.data
     delete req.session.oauth
     res.redirect('/')
   } catch (e) {
@@ -144,20 +139,13 @@ app.get('/auth/callback', async (req, res) => {
 })
 
 app.post('/auth/logout', (req, res) => {
-  req.session.destroy(() => {
-    res.json({ ok: true })
-  })
+  req.session.destroy(() => res.json({ ok: true }))
 })
 
 // ----- session & userinfo -----
 app.get('/api/session', (req, res) => {
-  try {
-    const authed = !!(req.session && req.session.tokens && req.session.tokens.access_token)
-    res.json({ authed })
-  } catch (err) {
-    console.error('Session check failed:', err)
-    res.status(200).json({ authed: false })
-  }
+  const authed = !!req.session?.tokens?.access_token
+  res.json({ authed })
 })
 
 app.get('/api/userinfo', async (req, res, next) => {
@@ -168,12 +156,10 @@ app.get('/api/userinfo', async (req, res, next) => {
       headers: { Authorization: `Bearer ${tokens.access_token}` }
     })
     res.json(r.data)
-  } catch (e) {
-    next(e)
-  }
+  } catch (e) { next(e) }
 })
 
-// ----- Google Tasks helpers -----
+// ----- helpers -----
 function requireAuth(req, res) {
   const tokens = req.session?.tokens
   if (!tokens?.access_token) {
@@ -183,49 +169,44 @@ function requireAuth(req, res) {
   return tokens
 }
 
+// ----- Google Tasks API -----
+
 // GET tasklists
 app.get('/api/tasklists', async (req, res, next) => {
   try {
-    const tokens = requireAuth(req, res)
-    if (!tokens) return
+    const tokens = requireAuth(req, res); if (!tokens) return
     const r = await axios.get(`${TASKS_API_BASE}/users/@me/lists`, {
       headers: { Authorization: `Bearer ${tokens.access_token}` }
     })
     res.json(r.data)
-  } catch (e) {
-    next(e)
-  }
+  } catch (e) { next(e) }
 })
 
-// GET tasks in a list
-// Query: ?tasklist=<id>
+// GET tasks in list
+// ?tasklist=<id>
 app.get('/api/tasks', async (req, res, next) => {
   try {
-    const tokens = requireAuth(req, res)
-    if (!tokens) return
+    const tokens = requireAuth(req, res); if (!tokens) return
     const tasklist = req.query.tasklist
     if (!tasklist) return res.status(400).json({ error: 'tasklist required' })
     const r = await axios.get(`${TASKS_API_BASE}/lists/${encodeURIComponent(tasklist)}/tasks`, {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
       params: {
         showCompleted: true,
-        showHidden: true,   // include hidden so parents/subtasks aren’t dropped
+        showHidden: true,   // ensure parents/subtasks aren’t dropped
         showDeleted: false,
         maxResults: 200
       }
     })
     res.json(r.data)
-  } catch (e) {
-    next(e)
-  }
+  } catch (e) { next(e) }
 })
 
 // POST create task (optionally as subtask)
 // Body: { tasklist, task, parent?, previous? }
 app.post('/api/tasks', async (req, res, next) => {
   try {
-    const tokens = requireAuth(req, res)
-    if (!tokens) return
+    const tokens = requireAuth(req, res); if (!tokens) return
     const { tasklist, task, parent, previous } = req.body || {}
     if (!tasklist || !task) return res.status(400).json({ error: 'tasklist and task required' })
 
@@ -247,20 +228,18 @@ app.post('/api/tasks', async (req, res, next) => {
       }
     )
     res.json(r.data)
-  } catch (e) {
-    next(e)
-  }
+  } catch (e) { next(e) }
 })
 
 // PATCH update task
 // Body: { tasklist, updates }
 app.patch('/api/tasks/:id', async (req, res, next) => {
   try {
-    const tokens = requireAuth(req, res)
-    if (!tokens) return
+    const tokens = requireAuth(req, res); if (!tokens) return
     const { id } = req.params
     const { tasklist, updates } = req.body || {}
     if (!tasklist || !id) return res.status(400).json({ error: 'tasklist and id required' })
+
     const r = await axios.patch(
       `${TASKS_API_BASE}/lists/${encodeURIComponent(tasklist)}/tasks/${encodeURIComponent(id)}`,
       updates,
@@ -272,42 +251,38 @@ app.patch('/api/tasks/:id', async (req, res, next) => {
       }
     )
     res.json(r.data)
-  } catch (e) {
-    next(e)
-  }
+  } catch (e) { next(e) }
 })
 
-// DELETE task
-// Query: ?tasklist=<id>
+// DELETE task  (?tasklist=<id>)
 app.delete('/api/tasks/:id', async (req, res, next) => {
   try {
-    const tokens = requireAuth(req, res)
-    if (!tokens) return
+    const tokens = requireAuth(req, res); if (!tokens) return
     const { id } = req.params
     const { tasklist } = req.query
     if (!tasklist || !id) return res.status(400).json({ error: 'tasklist and id required' })
+
     await axios.delete(
       `${TASKS_API_BASE}/lists/${encodeURIComponent(tasklist)}/tasks/${encodeURIComponent(id)}`,
       { headers: { Authorization: `Bearer ${tokens.access_token}` } }
     )
     res.json({ ok: true })
-  } catch (e) {
-    next(e)
-  }
+  } catch (e) { next(e) }
 })
 
 // POST move task (reorder and/or set parent)
 // Body: { tasklist, previous?, parent? }
 app.post('/api/tasks/:id/move', async (req, res, next) => {
   try {
-    const tokens = requireAuth(req, res)
-    if (!tokens) return
+    const tokens = requireAuth(req, res); if (!tokens) return
     const { id } = req.params
     const { tasklist, previous, parent } = req.body || {}
     if (!tasklist || !id) return res.status(400).json({ error: 'tasklist and id required' })
+
     const params = new URLSearchParams()
     if (previous) params.set('previous', previous)
     if (parent) params.set('parent', parent)
+
     const r = await axios.post(
       `${TASKS_API_BASE}/lists/${encodeURIComponent(tasklist)}/tasks/${encodeURIComponent(id)}/move`,
       null,
@@ -317,17 +292,13 @@ app.post('/api/tasks/:id/move', async (req, res, next) => {
       }
     )
     res.json(r.data)
-  } catch (e) {
-    next(e)
-  }
+  } catch (e) { next(e) }
 })
 
 // ----- error handler -----
 app.use((err, _req, res, _next) => {
   console.error('Unhandled error:', err?.response?.data || err)
-  try {
-    res.status(500).json({ error: 'Internal Server Error' })
-  } catch {}
+  try { res.status(500).json({ error: 'Internal Server Error' }) } catch {}
 })
 
 app.listen(PORT, () => {
