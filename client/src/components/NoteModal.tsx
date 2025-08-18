@@ -1,10 +1,27 @@
 import React from 'react'
-import Modal from './Modal'
 import ReactQuill from 'react-quill'
-import DOMPurify from 'dompurify'
-import 'react-quill/dist/quill.snow.css'
+import 'quill/dist/quill.snow.css' // Quill v2 stylesheet
 import { cleanNotesHtml } from '../utils/cleanNotesHtml'
+import Modal from './Modal'
 
+type Props =
+  // New-style props (isOpen/note) OR old-style props (open/initialNotes)
+  | {
+      isOpen: boolean
+      onClose: () => void
+      note: string
+      onSave: (noteHtml: string) => void
+      title?: string
+    }
+  | {
+      open: boolean
+      onClose: () => void
+      initialNotes: string
+      onSave: (noteHtml: string) => void
+      title?: string
+    }
+
+// Quill config (works for Quill v2)
 const QUILL_MODULES = {
   toolbar: [
     [{ header: [1, 2, 3, false] }],
@@ -27,29 +44,28 @@ const QUILL_FORMATS = [
   'color', 'background',
 ]
 
-export default function NoteModal({
-  open,
-  onClose,
-  initialNotes,
-  onSave,
-}: {
-  open: boolean
-  onClose: () => void
-  initialNotes: string
-  onSave: (notesHtml: string) => void
-}) {
+export default function NoteModal(props: Props) {
+  // Map both prop shapes to a common shape
+  const isOpen = 'isOpen' in props ? props.isOpen : props.open
+  const onClose = props.onClose
+  const initial = 'note' in props ? props.note : props.initialNotes
+  const onSaveProp = props.onSave
+  const modalTitle = ('title' in props && props.title) || 'Task Notes'
+
   const [tab, setTab] = React.useState<'edit' | 'preview'>('edit')
   const [html, setHtml] = React.useState<string>('')
 
-  // Normalize on open so we don't accumulate blank blocks across sessions
+  // Normalize on open so we don’t accumulate blank blocks
   React.useEffect(() => {
-    if (!open) return
+    if (!isOpen) return
     setTab('edit')
-    setHtml(cleanNotesHtml(initialNotes || ''))
-  }, [open, initialNotes])
+    setHtml(cleanNotesHtml(initial || ''))
+  }, [isOpen, initial])
+
+  if (!isOpen) return null
 
   return (
-    <Modal open={open} onClose={onClose} title="Task Notes" width={780}>
+    <Modal open={true} onClose={onClose} title={modalTitle} width={780}>
       {/* Tabs */}
       <div className="tabs">
         <button className={`tab ${tab === 'edit' ? 'active' : ''}`} onClick={() => setTab('edit')}>Edit</button>
@@ -93,7 +109,7 @@ export default function NoteModal({
           className="btn primary"
           onClick={() => {
             const cleaned = cleanNotesHtml(html || '')
-            onSave(cleaned)
+            onSaveProp(cleaned)
             onClose()
           }}
         >
@@ -103,3 +119,6 @@ export default function NoteModal({
     </Modal>
   )
 }
+
+// Local import to avoid TS error in JSX sanitization (DOMPurify used at runtime)
+import DOMPurify from 'dompurify'
