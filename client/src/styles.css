@@ -361,3 +361,44 @@ html[data-theme="high-contrast"] {
 /* Optional: a tiny, theme-aware drop shadow for the icon only */
 .brand svg { filter: drop-shadow(0 1px 1px rgba(0,0,0,.08)); }
 html[data-theme="dark"] .brand svg { filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
+
+/* === WYSIWYG (Quill) theming === */
+.wysiwyg-wrapper .ql-toolbar.ql-snow {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--surface);
+  color: var(--fg);
+}
+.wysiwyg-wrapper .ql-container.ql-snow {
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 220px;
+}
+.wysiwyg-wrapper .ql-snow .ql-stroke { stroke: var(--fg); }
+.wysiwyg-wrapper .ql-snow .ql-fill   { fill: var(--fg); }
+.wysiwyg-wrapper .ql-picker, 
+.wysiwyg-wrapper .ql-picker-label, 
+.wysiwyg-wrapper .ql-picker-options {
+  color: var(--fg);
+}
+.wysiwyg-wrapper .ql-picker-options {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.wysiwyg-wrapper .ql-editor {
+  color: var(--fg);
+}
+.wysiwyg-wrapper .ql-editor a { color: var(--accent); text-decoration: underline; }
+.wysiwyg-wrapper .ql-editor pre.ql-syntax {
+  background: rgba(127,127,127,.15);
+  color: var(--fg);
+  border-radius: 8px;
+  padding: 10px;
+}
+html[data-theme="high-contrast"] .wysiwyg-wrapper .ql-toolbar.ql-snow,
+html[data-theme="high-contrast"] .wysiwyg-wrapper .ql-container.ql-snow {
+  border-color: var(--border);
+}
