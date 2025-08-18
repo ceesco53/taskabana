@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ceesco53/taskabana/main/client/favicon.svg" alt="Taskabana Logo" width="100" />
+</p>
+
 # Taskabana 🗂️
 
 > A simple **Kanban board UI** powered by your **Google Tasks**.  
