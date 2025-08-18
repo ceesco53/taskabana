@@ -422,3 +422,96 @@ html[data-theme="high-contrast"] .wysiwyg-wrapper .ql-container.ql-snow {
   padding: 0 4px;
   border-radius: 4px;
 }
+
+.note-snippet.clickable { cursor: pointer; }
+.note-snippet.clickable:hover {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent) inset;
+}
+.note-snippet.clickable:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Make modal a column so header + body + footer lay out correctly */
+.modal {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;        /* already present, keep */
+  overflow: hidden;        /* keep scroll inside the body */
+}
+
+/* Let the body be the scroll area */
+.modal-body {
+  flex: 1 1 auto;
+  min-height: 0;           /* IMPORTANT: allows child to shrink for scrolling */
+  overflow: auto;          /* scroll here, footer stays visible */
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+
+/* Footer stays pinned because the body scrolls, not the whole modal */
+.modal-footer {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+
+/* Quill sizing so it never forces the footer off-screen */
+.wysiwyg-wrapper .ql-container.ql-snow {
+  /* natural min height for comfort, but cap with viewport to prevent overflow */
+  min-height: 220px;
+  max-height: 60vh;        /* prevents pushing footer out of view */
+}
+
+/* Optional: make the toolbar sticky inside the scroll area for long notes */
+.wysiwyg-wrapper .ql-toolbar.ql-snow {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* Lock page scroll when any modal is open */
+html.modal-open, html.modal-open body {
+  overflow: hidden;
+}
+
+/* Modal layout (header + body + footer) */
+.modal {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow: hidden;               /* keep scroll inside body */
+  overscroll-behavior: contain;   /* no scroll chaining from panel */
+}
+
+/* Scroll inside the body; keep footer visible */
+.modal-body {
+  flex: 1 1 auto;
+  min-height: 0;                  /* IMPORTANT for nested scroll */
+  overflow: auto;
+  -webkit-overflow-scrolling: touch; /* smooth on iOS */
+  overscroll-behavior: contain;   /* stop scroll from bubbling out */
+}
+
+/* Make Quill a good citizen in scroll containers */
+.wysiwyg-wrapper .ql-container.ql-snow {
+  min-height: 220px;
+  max-height: 60vh;               /* cap editor height */
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;   /* prevent bubbling to modal */
+}
+.wysiwyg-wrapper .ql-editor { min-height: 220px; }
+
+/* Optional: keep the toolbar visible when scrolling long notes */
+.wysiwyg-wrapper .ql-toolbar.ql-snow {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}

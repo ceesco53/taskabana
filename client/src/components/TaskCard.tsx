@@ -122,7 +122,24 @@ export default function TaskCard(props: Props) {
 
       {/* -------- Notes snippet (shows ~10 lines, scrolls if longer) -------- */}
       {notesHtml?.trim() ? (
-        <div className="note-snippet"
+        <div
+          className="note-snippet clickable"
+          role="button"
+          tabIndex={0}
+          aria-label="Open notes editor"
+          onClick={(e) => {
+            // If user clicked a link or any interactive element inside the snippet, respect that
+            const interactive = (e.target as HTMLElement).closest('a,button,input,textarea,select,code,pre')
+            if (interactive) return
+            setNoteOpen(true)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setNoteOpen(true)
+            }
+          }}
+          // keep sanitized HTML
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(notesHtml) }}
         />
       ) : null}
