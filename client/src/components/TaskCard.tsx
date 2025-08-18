@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import DueBadge from './DueBadge'
 import NoteModal from './NoteModal'
-import { patchTask } from '../api' // keep your existing api imports if different
-import type { GTask } from '../kanban' // adjust import path if your types live elsewhere
+import DOMPurify from 'dompurify'
+import { patchTask } from '../api'
+import type { GTask } from '../kanban' // adjust if your type path differs
 
 type Props = {
   task: GTask
   subtasks: GTask[]
   onDelete: () => void
 
-  // subtask handlers (provided by parent)
+  // subtask handlers
   onAddSubtask?: () => void
   onDeleteSubtask?: (subId: string) => void
   onMoveSubtaskToEnd?: (subId: string) => void
@@ -30,8 +31,11 @@ export default function TaskCard(props: Props) {
   const [title, setTitle] = useState(task.title || '')
   const [noteOpen, setNoteOpen] = useState(false)
   const [dragging, setDragging] = useState(false)
+  // local copy so snippet updates immediately after modal save
+  const [notesHtml, setNotesHtml] = useState<string>(task.notes || '')
 
   useEffect(() => { setTitle(task.title || '') }, [task.title])
+  useEffect(() => { setNotesHtml(task.notes || '') }, [task.notes])
 
   async function saveTitle() {
     try {
@@ -45,9 +49,7 @@ export default function TaskCard(props: Props) {
     e.dataTransfer.setData('text/taskId', task.id)
     e.dataTransfer.effectAllowed = 'move'
   }
-  function onDragEnd() {
-    setDragging(false)
-  }
+  function onDragEnd() { setDragging(false) }
 
   return (
     <div
@@ -59,7 +61,6 @@ export default function TaskCard(props: Props) {
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onKeyDown={(e) => {
-        // basic up/down focus between siblings
         const card = e.currentTarget as HTMLElement
         if (e.key === 'ArrowDown') {
           e.preventDefault()
@@ -90,9 +91,7 @@ export default function TaskCard(props: Props) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onBlur={saveTitle}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-          }}
+          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
           style={{
             fontWeight: 600,
             flex: 1,
@@ -121,8 +120,15 @@ export default function TaskCard(props: Props) {
         {onAddSubtask && <button className="btn" onClick={() => onAddSubtask()}>+ Subtask</button>}
       </div>
 
+      {/* -------- Notes snippet (shows ~10 lines, scrolls if longer) -------- */}
+      {notesHtml?.trim() ? (
+        <div className="note-snippet"
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(notesHtml) }}
+        />
+      ) : null}
+
       {/* Divider */}
-      <div style={{ height: 1, background: 'var(--border)', marginTop: 6 }} />
+      <div style={{ height: 1, background: 'var(--border)', marginTop: 4 }} />
 
       {/* Subtasks (ALWAYS stacked one per line) */}
       {(subtasks.length > 0 || onAddSubtask) ? (
@@ -175,10 +181,11 @@ export default function TaskCard(props: Props) {
       <NoteModal
         open={noteOpen}
         onClose={() => setNoteOpen(false)}
-        initialNotes={task.notes || ''}
-        onSave={async (notes) => {
+        initialNotes={notesHtml}
+        onSave={async (html) => {
+          setNotesHtml(html) // optimistic so the snippet updates immediately
           try {
-            await patchTask((window as any).CURRENT_LIST_ID, task.id, { notes: notes || null })
+            await patchTask((window as any).CURRENT_LIST_ID, task.id, { notes: html || null })
           } catch (e) { console.error(e) }
         }}
       />
@@ -188,7 +195,6 @@ export default function TaskCard(props: Props) {
 
 /* ----------------- helpers ----------------- */
 
-// Full-width dashed separator
 function DropZone({
   beforeId,
   onDrop,
@@ -226,13 +232,11 @@ function DropZone({
   )
 }
 
-// Subtask drag start helper used by chip
 function onSubDragStart(e: React.DragEvent, sid: string) {
   e.dataTransfer.setData('text/subtaskId', sid)
   e.dataTransfer.effectAllowed = 'move'
 }
 
-// Always full-width subtask row; no .badge class
 function SubtaskChip({
   st,
   onSubDragStart,
@@ -314,7 +318,7 @@ function SubtaskChip({
   )
 }
 
-/* --------- tiny date helpers (local iso <-> input) --------- */
+/* --------- date helpers --------- */
 function toDateInputValue(iso?: string) {
   if (!iso) return ''
   const d = new Date(iso)
@@ -326,6 +330,5 @@ function toDateInputValue(iso?: string) {
 }
 function fromDateInputValue(v?: string) {
   if (!v) return undefined
-  // noon UTC to avoid tz shift
   return `${v}T12:00:00.000Z`
 }
