@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    :root {
+      --ink: #0b1220; --slot: #fff; --accent: #37c3a8; --check: #fff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --ink:#e8eefc; --slot:#0f1115; --accent:#37c3a8; --check:#0b0c0f; }
+    }
+  </style>
+  <rect x="6" y="10" width="20" height="44" rx="6" fill="var(--ink)"/>
+  <rect x="26" y="10" width="20" height="44" rx="6" fill="var(--ink)"/>
+  <rect x="12" y="16" width="8" height="4" rx="2" fill="var(--slot)"/>
+  <rect x="32" y="16" width="8" height="4" rx="2" fill="var(--slot)"/>
+  <rect x="12" y="28" width="8" height="4" rx="2" fill="var(--slot)"/>
+  <rect x="32" y="28" width="8" height="4" rx="2" fill="var(--slot)"/>
+  <rect x="12" y="40" width="8" height="4" rx="2" fill="var(--slot)"/>
+  <rect x="32" y="40" width="8" height="4" rx="2" fill="var(--slot)"/>
+  <circle cx="46" cy="46" r="12" fill="var(--accent)"/>
+  <path d="M40 46l4 4 8-10" stroke="var(--check)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

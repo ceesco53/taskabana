@@ -326,3 +326,38 @@ input[type="text"], input:not([type]), textarea, select {
   box-shadow: var(--shadow-2);
   z-index: 60;
 }
+
+/* ===== Brand colors (theme-aware & semi-transparent) ===== */
+:root {
+  --brand-ink: #0b1220;           /* icon body in light theme */
+  --brand-ink-alpha: 0.9;
+  --brand-slot: #ffffff;          /* “cutouts” on cards */
+  --brand-accent: #37c3a8;        /* green circle */
+  --brand-accent-alpha: 0.9;
+  --brand-check: #ffffff;         /* checkmark color */
+}
+
+html[data-theme="dark"] {
+  --brand-ink: #e8eefc;
+  --brand-ink-alpha: 0.9;
+  --brand-slot: #0f1115;
+  --brand-accent: #37c3a8;
+  --brand-accent-alpha: 0.85;
+  --brand-check: #0b0c0f;
+}
+
+html[data-theme="high-contrast"] {
+  --brand-ink: #fff;
+  --brand-ink-alpha: 1;
+  --brand-slot: #000;
+  --brand-accent: #0ff;
+  --brand-accent-alpha: 1;
+  --brand-check: #000;
+}
+
+/* wordmark inherits theme text color; tighten alignment a bit */
+.brand-wordmark { color: var(--fg); letter-spacing: .2px; }
+
+/* Optional: a tiny, theme-aware drop shadow for the icon only */
+.brand svg { filter: drop-shadow(0 1px 1px rgba(0,0,0,.08)); }
+html[data-theme="dark"] .brand svg { filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); }

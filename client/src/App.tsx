@@ -3,6 +3,8 @@ import KanbanColumn from './components/Column'
 import TaskCard from './components/TaskCard' // Column renders TaskCard, but we import types below
 import AddTaskModal, { AddTaskValues } from './components/AddTaskModal'
 import { useToast } from './hooks/useToast'
+// branding
+import Brand from './components/Brand'
 
 // theme helpers
 type ThemeKey = 'light' | 'dark' | 'hc'
@@ -357,9 +359,9 @@ export default function App() {
         background: 'var(--surface)',
       }}>
         {/* Left: App title (or your logo) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <strong style={{ fontSize: 16 }}>Tasks Kanban</strong>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Brand size={28} showWordmark />
+      </div>
 
         {/* Center: List picker */}
         <div style={{ display: 'flex', justifyContent: 'center' }}>
