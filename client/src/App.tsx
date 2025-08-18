@@ -5,6 +5,8 @@ import AddTaskModal, { AddTaskValues } from './components/AddTaskModal'
 import { useToast } from './hooks/useToast'
 // branding
 import Brand from './components/Brand'
+import { useEffect, useState } from "react";
+import { useRememberedTaskList } from "./hooks/useRememberedTaskList"; // adjust path if needed
 
 // theme helpers
 type ThemeKey = 'light' | 'dark' | 'hc'
@@ -61,6 +63,7 @@ function notEmpty<T>(x: T | undefined | null): x is T { return !!x }
 
 export default function App() {
   const toast = useToast()
+  const [activeListId, setActiveListId] = useState<string | null>(null);
 
   // theme stuff
   const [theme, setTheme] = React.useState<ThemeKey>(loadTheme())
@@ -115,6 +118,17 @@ export default function App() {
     refreshTasks()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authed, listId])
+
+  // remember last selected task list
+  const [me, setMe] = useState<{ email: string | null }>({ email: null });
+  const { selectedListId, onSelectList } = useRememberedTaskList(tasklists, me.email);
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => (r.ok ? r.json() : { email: null }))
+      .then((m) => setMe(m ?? { email: null }))
+      .catch(() => setMe({ email: null }));
+  }, []);
 
   async function refreshTasks() {
     if (!listId) return
@@ -363,18 +377,29 @@ export default function App() {
         <Brand size={28} showWordmark />
       </div>
 
-        {/* Center: List picker */}
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <select
-            value={listId || ''}
-            onChange={(e) => setListId(e.target.value)}
-            style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '8px 10px', background: 'var(--bg)', color: 'var(--fg)', minWidth: 260 }}
-          >
-            {tasklists.map((tl) => (
-              <option key={tl.id} value={tl.id}>{tl.title}</option>
-            ))}
-          </select>
-        </div>
+      {/* Center: List picker */}
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <select
+          value={selectedListId ?? ''}
+          onChange={(e) => {
+            const id = e.target.value;
+            onSelectList(id);     // persist to localStorage (scoped by user email if available)
+            setListId(id);        // keep your existing app state in sync
+          }}
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            padding: '8px 10px',
+            background: 'var(--bg)',
+            color: 'var(--fg)',
+            minWidth: 260
+          }}
+        >
+          {tasklists.map((tl) => (
+            <option key={tl.id} value={tl.id}>{tl.title}</option>
+          ))}
+        </select>
+      </div>
 
         {/* Right: sort mode, theme, logout */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>

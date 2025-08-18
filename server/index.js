@@ -295,6 +295,9 @@ app.post('/api/tasks/:id/move', async (req, res, next) => {
   } catch (e) { next(e) }
 })
 
+import { registerMeRoute } from "./me-route.js";
+registerMeRoute(app);
+
 // ----- error handler -----
 app.use((err, _req, res, _next) => {
   console.error('Unhandled error:', err?.response?.data || err)
