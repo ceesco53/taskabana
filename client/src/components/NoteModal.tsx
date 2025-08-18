@@ -3,12 +3,7 @@ import Modal from './Modal'
 import ReactQuill from 'react-quill'
 import DOMPurify from 'dompurify'
 import 'react-quill/dist/quill.snow.css'
-
-/**
- * We store notes as HTML so formatting persists in Google Tasks `notes` (string).
- * If you previously stored Markdown, it will just appear as plain text in the editor.
- * (We could add md<->html conversion later if you want.)
- */
+import { cleanNotesHtml } from '../utils/cleanNotesHtml'
 
 const QUILL_MODULES = {
   toolbar: [
@@ -22,7 +17,6 @@ const QUILL_MODULES = {
     ['clean'],
   ],
 }
-
 const QUILL_FORMATS = [
   'header',
   'bold', 'italic', 'underline', 'strike',
@@ -45,51 +39,61 @@ export default function NoteModal({
   onSave: (notesHtml: string) => void
 }) {
   const [tab, setTab] = React.useState<'edit' | 'preview'>('edit')
-  const [html, setHtml] = React.useState<string>(initialNotes || '')
+  const [html, setHtml] = React.useState<string>('')
 
+  // Normalize on open so we don't accumulate blank blocks across sessions
   React.useEffect(() => {
-    if (open) {
-      setHtml(initialNotes || '')
-      setTab('edit')
-    }
+    if (!open) return
+    setTab('edit')
+    setHtml(cleanNotesHtml(initialNotes || ''))
   }, [open, initialNotes])
 
   return (
     <Modal open={open} onClose={onClose} title="Task Notes" width={780}>
+      {/* Tabs */}
       <div className="tabs">
-        <button className={`tab ${tab === 'edit' ? 'active' : ''}`} onClick={() => setTab('edit')}>
-          Edit
-        </button>
-        <button className={`tab ${tab === 'preview' ? 'active' : ''}`} onClick={() => setTab('preview')}>
-          Preview
-        </button>
+        <button className={`tab ${tab === 'edit' ? 'active' : ''}`} onClick={() => setTab('edit')}>Edit</button>
+        <button className={`tab ${tab === 'preview' ? 'active' : ''}`} onClick={() => setTab('preview')}>Preview</button>
       </div>
 
-      {tab === 'edit' ? (
-        <div className="wysiwyg-wrapper">
-          <ReactQuill
-            theme="snow"
-            value={html}
-            onChange={setHtml}
-            modules={QUILL_MODULES}
-            formats={QUILL_FORMATS}
-            placeholder="Write your notes…"
+      {/* Keep both panes mounted to avoid Quill re-init adding empties */}
+      <div className="note-pane-stack">
+        <div
+          className="note-pane-editor"
+          style={{ display: tab === 'edit' ? 'block' : 'none' }}
+          aria-hidden={tab !== 'edit'}
+        >
+          <div className="wysiwyg-wrapper">
+            <ReactQuill
+              theme="snow"
+              value={html}
+              onChange={setHtml}
+              modules={QUILL_MODULES}
+              formats={QUILL_FORMATS}
+              placeholder="Write your notes…"
+            />
+          </div>
+        </div>
+
+        <div
+          className="note-pane-preview"
+          style={{ display: tab === 'preview' ? 'block' : 'none' }}
+          aria-hidden={tab !== 'preview'}
+        >
+          <div
+            className="note-preview"
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(cleanNotesHtml(html || '')) }}
           />
         </div>
-      ) : (
-        <div
-          className="note-preview"
-          // Sanitize before rendering
-          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html || '') }}
-        />
-      )}
+      </div>
 
       <div className="modal-footer">
         <button className="btn" onClick={onClose}>Cancel</button>
         <button
           className="btn primary"
           onClick={() => {
-            onSave(html || '')
+            const cleaned = cleanNotesHtml(html || '')
+            onSave(cleaned)
             onClose()
           }}
         >

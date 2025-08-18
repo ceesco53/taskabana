@@ -515,3 +515,43 @@ html.modal-open, html.modal-open body {
   top: 0;
   z-index: 1;
 }
+
+/* Tighter block spacing in editor, preview, and card snippet */
+.wysiwyg-wrapper .ql-editor ul,
+.wysiwyg-wrapper .ql-editor ol,
+.wysiwyg-wrapper .ql-editor blockquote,
+.note-preview ul, .note-preview ol, .note-preview blockquote,
+.note-snippet ul, .note-snippet ol, .note-snippet blockquote {
+  margin: 0 0 10px;
+}
+.wysiwyg-wrapper .ql-editor pre.ql-syntax,
+.note-preview pre, .note-snippet pre {
+  margin: 8px 0 10px;
+}
+
+/* Hide Quill’s trailing empty block in the editor */
+.wysiwyg-wrapper .ql-editor p:last-child:has(> br:only-child) {
+  display: none;
+}
+
+/* If Quill inserts an empty paragraph before a code block, collapse it */
+.wysiwyg-wrapper .ql-editor p:has(> br:only-child) + pre.ql-syntax {
+  margin-top: 0;            /* remove the artificial gap */
+}
+.wysiwyg-wrapper .ql-editor pre.ql-syntax + p:has(> br:only-child) {
+  display: none;            /* also hide an empty just after code */
+}
+
+/* General empty-paragraph minimization inside the editor */
+.wysiwyg-wrapper .ql-editor p:has(> br:only-child) {
+  margin: 0;
+  min-height: 0;
+}
+
+/* Fallback for browsers without :has() (optional, harmless otherwise) */
+@supports not (selector(:has(*))) {
+  .wysiwyg-wrapper .ql-editor p {
+    /* keep your tighter spacing so empties look minimal */
+    margin: 0 0 8px;
+  }
+}

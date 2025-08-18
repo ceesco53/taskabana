@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
+import DOMPurify from 'dompurify'
 import DueBadge from './DueBadge'
 import NoteModal from './NoteModal'
-import DOMPurify from 'dompurify'
 import { patchTask } from '../api'
 import type { GTask } from '../kanban' // adjust if your type path differs
+import { cleanNotesHtml } from '../utils/cleanNotesHtml'
 
 type Props = {
   task: GTask
@@ -31,11 +32,13 @@ export default function TaskCard(props: Props) {
   const [title, setTitle] = useState(task.title || '')
   const [noteOpen, setNoteOpen] = useState(false)
   const [dragging, setDragging] = useState(false)
-  // local copy so snippet updates immediately after modal save
-  const [notesHtml, setNotesHtml] = useState<string>(task.notes || '')
+  const [notesHtml, setNotesHtml] = useState<string>(cleanNotesHtml(task.notes || ''))
 
   useEffect(() => { setTitle(task.title || '') }, [task.title])
-  useEffect(() => { setNotesHtml(task.notes || '') }, [task.notes])
+  useEffect(() => {
+    // Normalize on hydrate so snippet never shows ghosts
+    setNotesHtml(cleanNotesHtml(task.notes || ''))
+  }, [task.notes])
 
   async function saveTitle() {
     try {
@@ -128,7 +131,6 @@ export default function TaskCard(props: Props) {
           tabIndex={0}
           aria-label="Open notes editor"
           onClick={(e) => {
-            // If user clicked a link or any interactive element inside the snippet, respect that
             const interactive = (e.target as HTMLElement).closest('a,button,input,textarea,select,code,pre')
             if (interactive) return
             setNoteOpen(true)
@@ -139,8 +141,7 @@ export default function TaskCard(props: Props) {
               setNoteOpen(true)
             }
           }}
-          // keep sanitized HTML
-          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(notesHtml) }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(cleanNotesHtml(notesHtml)) }}
         />
       ) : null}
 
@@ -200,9 +201,10 @@ export default function TaskCard(props: Props) {
         onClose={() => setNoteOpen(false)}
         initialNotes={notesHtml}
         onSave={async (html) => {
-          setNotesHtml(html) // optimistic so the snippet updates immediately
+          const cleaned = cleanNotesHtml(html || '')
+          setNotesHtml(cleaned) // optimistic with CLEAN html to avoid ghost empties
           try {
-            await patchTask((window as any).CURRENT_LIST_ID, task.id, { notes: html || null })
+            await patchTask((window as any).CURRENT_LIST_ID, task.id, { notes: cleaned || null })
           } catch (e) { console.error(e) }
         }}
       />
