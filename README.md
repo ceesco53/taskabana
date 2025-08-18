@@ -2,10 +2,12 @@
   <img src="https://raw.githubusercontent.com/ceesco53/taskabana/main/client/favicon.svg" alt="Taskabana Logo" width="100" />
 </p>
 
-# Taskabana 🗂️
+<h1 align="center">Taskabana</h1>
 
-> A simple **Kanban board UI** powered by your **Google Tasks**.  
-> Visualize, manage, and update your Google Task lists in a modern kanban-style workflow.
+<p align="center">
+  A simple <strong>Kanban board UI</strong> powered by your <strong>Google Tasks</strong>.<br/>
+  Visualize, manage, and update your Google Task lists in a modern kanban-style workflow.
+</p>
 
 ---
 
