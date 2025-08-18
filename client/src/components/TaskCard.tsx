@@ -1,73 +1,66 @@
 import React, { useEffect, useState } from 'react'
-import type { GTask } from '../kanban'
-import { patchTask } from '../api'
-import { toDateInputValue, fromDateInputValue } from '../utils'
-import Calendar from './Calendar'
-import { marked } from 'marked'
 import DueBadge from './DueBadge'
+import NoteModal from './NoteModal'
+import { patchTask } from '../api' // keep your existing api imports if different
+import type { GTask } from '../kanban' // adjust import path if your types live elsewhere
 
 type Props = {
   task: GTask
-  subtasks?: GTask[]
-  onDelete?: () => void
+  subtasks: GTask[]
+  onDelete: () => void
+
+  // subtask handlers (provided by parent)
   onAddSubtask?: () => void
-  onDeleteSubtask?: (subtaskId: string) => void
-  onMoveSubtaskToEnd?: (subtaskId: string) => void
-  onReorderSubtask?: (subtaskId: string, beforeId?: string) => void
+  onDeleteSubtask?: (subId: string) => void
+  onMoveSubtaskToEnd?: (subId: string) => void
+  onReorderSubtask?: (subId: string, beforeId?: string) => void
 }
 
-export default function TaskCard({
-  task,
-  subtasks = [],
-  onDelete,
-  onAddSubtask,
-  onDeleteSubtask,
-  onMoveSubtaskToEnd,
-  onReorderSubtask
-}: Props) {
-  const [dragging, setDragging] = useState(false)
+export default function TaskCard(props: Props) {
+  const {
+    task,
+    subtasks,
+    onDelete,
+    onAddSubtask,
+    onDeleteSubtask,
+    onMoveSubtaskToEnd,
+    onReorderSubtask,
+  } = props
+
   const [title, setTitle] = useState(task.title || '')
-  const [editingNotes, setEditingNotes] = useState(false) // kept for backwards compat (unused)
-  const [showNotes, setShowNotes] = useState(false)
-  const [showPreview, setShowPreview] = useState(true)
-  const [notes, setNotes] = useState(task.notes || '')
-  const [due, setDue] = useState(toDateInputValue(task.due))
-  const [showCal, setShowCal] = useState(false)
+  const [noteOpen, setNoteOpen] = useState(false)
+  const [dragging, setDragging] = useState(false)
 
   useEffect(() => { setTitle(task.title || '') }, [task.title])
-  useEffect(() => { setNotes(task.notes || '') }, [task.notes])
-  useEffect(() => { setDue(toDateInputValue(task.due)) }, [task.due])
-
-  function onDragStart(e: React.DragEvent) {
-    e.dataTransfer.setData('text/taskId', task.id)
-    setDragging(true)
-  }
-  function onDragEnd() { setDragging(false) }
 
   async function saveTitle() {
-    if ((task.title || '') === title) return
-    try { await patchTask((window as any).CURRENT_LIST_ID, task.id, { title }) } catch {}
-  }
-  async function saveNotes() {
-    if ((task.notes || '') === notes) return
-    try { await patchTask((window as any).CURRENT_LIST_ID, task.id, { notes }) } catch {}
-  }
-  async function saveDue(newVal: string) {
-    const iso = fromDateInputValue(newVal)
-    try { await patchTask((window as any).CURRENT_LIST_ID, task.id, { due: iso }) } catch {}
+    try {
+      await patchTask((window as any).CURRENT_LIST_ID, task.id, { title })
+    } catch (e) { console.error(e) }
   }
 
-  // Subtask drag helpers
-  function onSubDragStart(e: React.DragEvent, sid: string) {
-    e.dataTransfer.setData('text/subtaskId', sid)
+  // ------------ task-level drag ------------
+  function onDragStart(e: React.DragEvent) {
+    setDragging(true)
+    e.dataTransfer.setData('text/taskId', task.id)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+  function onDragEnd() {
+    setDragging(false)
   }
 
   return (
     <div
       className={`task ${dragging ? 'dragging' : ''}`}
       tabIndex={0}
+      data-card
+      data-id={task.id}
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       onKeyDown={(e) => {
-        const card = e.currentTarget
+        // basic up/down focus between siblings
+        const card = e.currentTarget as HTMLElement
         if (e.key === 'ArrowDown') {
           e.preventDefault()
           let el = card.nextElementSibling as HTMLElement | null
@@ -81,65 +74,59 @@ export default function TaskCard({
           el?.focus()
         }
       }}
-      data-card
-      data-id={task.id}
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: '16px',
+        padding: 12,
+        display: 'grid',
+        gap: 8
+      }}
     >
+      {/* Header: drag handle, title, delete */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span className="drag-handle" aria-hidden>≡</span>
         <input
-          style={{ fontWeight: 600, flex: 1, border: '1px solid var(--border)', borderRadius: 6, padding: '4px 6px', background: 'var(--bg)', color: 'var(--fg)' }}
           value={title}
-          onChange={e => setTitle(e.target.value)}
+          onChange={(e) => setTitle(e.target.value)}
           onBlur={saveTitle}
-          onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          }}
+          style={{
+            fontWeight: 600,
+            flex: 1,
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            padding: '8px 10px',
+            background: 'var(--bg)',
+            color: 'var(--fg)',
+          }}
         />
-        <DueBadge iso={task.due} />
-        {onDelete && <button className="icon-btn danger" title="Delete task" 
-          aria-label="Delete task" onClick={onDelete}>🗑️</button>}
+        <button
+          className="icon-btn danger"
+          title="Delete task"
+          aria-label="Delete task"
+          onClick={onDelete}
+        >
+          🗑️
+        </button>
       </div>
 
+      {/* Controls row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
         <label className="badge">Due</label>
-        <button onClick={() => setShowCal(v => !v)}>{due || 'Pick a date'}</button>
-        {showCal ? (
-          <div style={{ position: 'relative' }}>
-            <div style={{ position: 'absolute', zIndex: 20 }}>
-              <Calendar
-                value={due}
-                onChange={(ymd) => { setDue(ymd); setShowCal(false); if (ymd !== toDateInputValue(task.due)) saveDue(ymd) }}
-              />
-            </div>
-          </div>
-        ) : null}
-        <button onClick={() => setShowNotes(v => !v)}>{showNotes ? 'Hide notes' : 'Notes'}</button>
-        {showNotes && <button onClick={() => setShowPreview(p => !p)}>{showPreview ? 'Edit' : 'Preview'}</button>}
-        {onAddSubtask && <button onClick={onAddSubtask}>+ Subtask</button>}
+        <DueBadge iso={task.due} />
+        <button className="btn" onClick={() => setNoteOpen(true)}>Notes</button>
+        {onAddSubtask && <button className="btn" onClick={() => onAddSubtask()}>+ Subtask</button>}
       </div>
 
-      {showNotes ? (
-        showPreview ? (
-          <div
-            style={{ marginTop: 8, border: '1px solid var(--border)', borderRadius: 8, padding: 8 }}
-            dangerouslySetInnerHTML={{ __html: marked.parse(notes || '') as string }}
-          />
-        ) : (
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            onBlur={saveNotes}
-            placeholder="Notes… (Markdown supported)"
-            style={{ width: '100%', marginTop: 8, minHeight: 90, border: '1px solid var(--border)', borderRadius: 8, padding: 8, background: 'var(--bg)', color: 'var(--fg)' }}
-          />
-        )
-      ) : null}
+      {/* Divider */}
+      <div style={{ height: 1, background: 'var(--border)', marginTop: 6 }} />
 
-      {/* Subtask lane with precise reorder drop-zones */}
-      {/* Subtask lane with precise reorder drop-zones (ALWAYS stacked 1-per-line) */}
+      {/* Subtasks (ALWAYS stacked one per line) */}
       {(subtasks.length > 0 || onAddSubtask) ? (
-        <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+        <div style={{ marginTop: 4 }}>
           <div style={{ fontSize: 12, marginBottom: 6, color: 'var(--muted)' }}>Subtasks</div>
 
           <ul className="subtasks-list">
@@ -157,7 +144,6 @@ export default function TaskCard({
                 <li className="subtask-row">
                   <SubtaskChip
                     st={st}
-                    stacked
                     onSubDragStart={onSubDragStart}
                     onDeleteSubtask={onDeleteSubtask}
                   />
@@ -179,14 +165,30 @@ export default function TaskCard({
             ))}
           </ul>
 
-          <div className="footer-note">Drag a subtask row into a dashed gap to reorder.</div>
+          <div className="footer-note" style={{ marginTop: 8 }}>
+            Drag a subtask row into a dashed gap to reorder.
+          </div>
         </div>
       ) : null}
+
+      {/* Notes modal */}
+      <NoteModal
+        open={noteOpen}
+        onClose={() => setNoteOpen(false)}
+        initialNotes={task.notes || ''}
+        onSave={async (notes) => {
+          try {
+            await patchTask((window as any).CURRENT_LIST_ID, task.id, { notes: notes || null })
+          } catch (e) { console.error(e) }
+        }}
+      />
     </div>
   )
 }
 
-/** Thin dashed drop target used between subtask chips */
+/* ----------------- helpers ----------------- */
+
+// Full-width dashed separator
 function DropZone({
   beforeId,
   onDrop,
@@ -209,7 +211,7 @@ function DropZone({
               width: '100%',
               height: 8,
               border: '1px dashed var(--border)',
-              borderRadius: 6,
+              borderRadius: 8,
             }
           : {
               width: 14,
@@ -224,7 +226,13 @@ function DropZone({
   )
 }
 
-/** Subtask chip with inline title + date edit */
+// Subtask drag start helper used by chip
+function onSubDragStart(e: React.DragEvent, sid: string) {
+  e.dataTransfer.setData('text/subtaskId', sid)
+  e.dataTransfer.effectAllowed = 'move'
+}
+
+// Always full-width subtask row; no .badge class
 function SubtaskChip({
   st,
   onSubDragStart,
@@ -237,23 +245,15 @@ function SubtaskChip({
   const [title, setTitle] = useState(st.title || '')
   const [due, setDue] = useState(toDateInputValue(st.due))
 
-  useEffect(() => {
-    setTitle(st.title || '')
-  }, [st.title])
-  useEffect(() => {
-    setDue(toDateInputValue(st.due))
-  }, [st.due])
+  useEffect(() => { setTitle(st.title || '') }, [st.title])
+  useEffect(() => { setDue(toDateInputValue(st.due)) }, [st.due])
 
   async function saveTitle() {
-    try {
-      await patchTask((window as any).CURRENT_LIST_ID, st.id, { title })
-    } catch {}
+    try { await patchTask((window as any).CURRENT_LIST_ID, st.id, { title }) } catch (e) { console.error(e) }
   }
   async function saveDue(newVal: string) {
     const iso = fromDateInputValue(newVal)
-    try {
-      await patchTask((window as any).CURRENT_LIST_ID, st.id, { due: iso })
-    } catch {}
+    try { await patchTask((window as any).CURRENT_LIST_ID, st.id, { due: iso }) } catch (e) { console.error(e) }
   }
 
   return (
@@ -262,20 +262,27 @@ function SubtaskChip({
       onDragStart={(e) => onSubDragStart(e, st.id)}
       title={st.notes || ''}
       className="subtask-chip"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '8px 10px',
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        width: '100%',
+        background: 'var(--card)',
+      }}
     >
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         onBlur={saveTitle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter')
-            (e.target as HTMLInputElement).blur()
-        }}
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
         style={{
           background: 'transparent',
           border: '1px solid var(--border)',
-          borderRadius: 6,
-          padding: '2px 4px',
+          borderRadius: 8,
+          padding: '6px 8px',
           color: 'var(--fg)',
           flex: 1,
         }}
@@ -288,23 +295,37 @@ function SubtaskChip({
         style={{
           background: 'transparent',
           border: '1px solid var(--border)',
-          borderRadius: 6,
-          padding: '2px 4px',
+          borderRadius: 8,
+          padding: '6px 8px',
           color: 'var(--fg)',
         }}
       />
-      <div className="actions">
-        {onDeleteSubtask && (
-          <button
-            className="icon-btn danger"
-            title="Delete subtask"
-            aria-label="Delete subtask"
-            onClick={() => onDeleteSubtask(st.id)}
-          >
-            🗑️
-          </button>
-        )}
-      </div>
+      {onDeleteSubtask && (
+        <button
+          className="icon-btn danger"
+          title="Delete subtask"
+          aria-label="Delete subtask"
+          onClick={() => onDeleteSubtask(st.id)}
+        >
+          🗑️
+        </button>
+      )}
     </div>
   )
+}
+
+/* --------- tiny date helpers (local iso <-> input) --------- */
+function toDateInputValue(iso?: string) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+function fromDateInputValue(v?: string) {
+  if (!v) return undefined
+  // noon UTC to avoid tz shift
+  return `${v}T12:00:00.000Z`
 }
