@@ -26,6 +26,7 @@ const GOOGLE_AUTH = 'https://accounts.google.com/o/oauth2/v2/auth'
 const GOOGLE_TOKEN = 'https://oauth2.googleapis.com/token'
 const OIDC_USERINFO = 'https://openidconnect.googleapis.com/v1/userinfo'
 const TASKS_API_BASE = 'https://tasks.googleapis.com/tasks/v1'
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
 
 const SCOPES = [
   'openid',
@@ -53,6 +54,8 @@ function genCodeChallenge(verifier) {
 // ----- middleware -----
 app.use(express.json())
 
+app.set('trust proxy', 1); // running behind Vite dev proxy; ensures cookies behave
+
 app.use(
   cors({
     origin: ['http://localhost:5173'],
@@ -60,20 +63,29 @@ app.use(
   })
 )
 
-app.use(
-  session({
-    secret: SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: { sameSite: 'lax', secure: false }, // local http
-  })
-)
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'dev-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: false,      // true only when served over HTTPS
+    sameSite: 'lax',    // critical: keeps the cookie on the OAuth redirect
+    maxAge: 1000*60*60*24*7
+  }
+}));
+
 
 // Tiny request logger
 app.use((req, _res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`)
   next()
 })
+
+// root route that just sends you to the client
+app.get('/', (req, res) => {
+  return res.redirect(CLIENT_ORIGIN + '/');
+});
 
 // ----- health -----
 app.get('/health', (_req, res) => {
@@ -131,6 +143,14 @@ app.get('/auth/callback', async (req, res) => {
 
     req.session.tokens = tokenResp.data
     delete req.session.oauth
+    // after exchanging the code for tokens and getting profile:
+    req.session.user = { id: profile.sub, name: profile.name, email: profile.email };
+
+    // ⬇️ make sure we save, then go back to the client
+    req.session.save(() => {
+      res.redirect(CLIENT_ORIGIN + '/');
+    });
+
     res.redirect('/')
   } catch (e) {
     console.error('Callback failed:', e?.response?.data || e)
