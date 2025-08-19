@@ -1,12 +1,14 @@
-import React from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import KanbanColumn from './components/Column'
 import TaskCard from './components/TaskCard' // Column renders TaskCard, but we import types below
 import AddTaskModal, { AddTaskValues } from './components/AddTaskModal'
 import { useToast } from './hooks/useToast'
 // branding
 import Brand from './components/Brand'
-import { useEffect, useState } from "react";
 import { useRememberedTaskList } from "./hooks/useRememberedTaskList"; // adjust path if needed
+import SearchBar from './components/SearchBar'
+import { filterTasks } from './utils/search'
+
 
 // theme helpers
 type ThemeKey = 'light' | 'dark' | 'hc'
@@ -73,6 +75,9 @@ export default function App() {
   const [authed, setAuthed] = React.useState(false)
   const [tasklists, setTasklists] = React.useState<{ id: string; title: string }[]>([])
   const [listId, setListId] = React.useState<string | null>(null)
+
+  // ---- search ----
+  const [query, setQuery] = useState<string>('')
 
   // ---- tasks + derived ----
   const [tasks, setTasks] = React.useState<GTask[]>([])
@@ -157,22 +162,31 @@ export default function App() {
     }
   }
 
-  // ---- derive columns + subtask map ----
+  // ---- filter tasks by search ----
+  const visibleTasks = React.useMemo(
+    () => (query ? filterTasks(tasks, query) : tasks),
+    [tasks, query]
+  )
+
+  // ---- derive columns + subtask map (use visibleTasks!) ----
+  const topLevel = React.useMemo(
+    () => visibleTasks.filter((t) => !t.parent),
+    [visibleTasks]
+  )
+
   const childrenByParent = React.useMemo(() => {
     const map: Record<string, GTask[]> = {}
-    for (const t of tasks) {
+    for (const t of visibleTasks) {
       if (!t.parent) continue
       if (!map[t.parent]) map[t.parent] = []
       map[t.parent].push(t)
     }
-    // keep API order (position); optional extra sort by due for predictability
+    // keep API order; optionally sort by due for predictability
     for (const k of Object.keys(map)) {
       map[k] = sortMode === 'due' ? [...map[k]].sort(byDueAsc) : map[k]
     }
     return map
-  }, [tasks, sortMode])
-
-  const topLevel = React.useMemo(() => tasks.filter((t) => !t.parent), [tasks])
+  }, [visibleTasks, sortMode])
 
   const colInProgress = React.useMemo(() => {
     const list = topLevel.filter((t) => t.status !== 'completed' && !isIcebucket(t))
@@ -419,7 +433,7 @@ export default function App() {
               Due date
             </button>
           </div>
-
+          <SearchBar value={query} onChange={setQuery} />
           <select
             value={theme}
             onChange={(e) => setTheme(e.target.value as ThemeKey)}
