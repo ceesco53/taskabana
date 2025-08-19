@@ -18,11 +18,34 @@
 - 🗂️ **Kanban board view** — drag & drop tasks between columns.
 - ➕ **Create, update, complete, and delete tasks** — everything stays synced with Google.
 - 📱 **Responsive design** — works nicely on desktop and mobile.
-- 💾 **Remember last task list** —  
-  - Your last chosen Google Task list is saved in `localStorage`.  
-  - Restores automatically across refreshes or new logins.  
-  - Scoped by your Google account (so different users don’t override each other).  
-  - Falls back gracefully to the first list if the saved one no longer exists.
+- 💾 **Remember your last chosen Google Task list**
+- 🔎 **Search & Filters:**
+
+### Search & Filters
+
+Type into the search bar at the top of the board to instantly narrow down visible tasks.
+
+How it works:
+
+- **Free text:**  
+  `meeting design` matches tasks where both “meeting” AND “design” appear in the title or notes (notes are cleaned of HTML first).
+- **Tags:**  
+  `tag:#icebucket` or `tag:icebucket` matches tasks whose first paragraph is `#icebucket` (your existing tagging convention).
+- **Due filters:**  
+  - `due:today`  
+  - `due:tomorrow`  
+  - `due:week`  
+  - `overdue`
+- **Status:**  
+  - `status:completed`  
+  - `-status:completed` (exclude done items)
+
+Combinations work too, e.g.:
+
+```
+tag:#icebucket overdue
+design due:week -status:completed
+```
 
 ---
 
