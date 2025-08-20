@@ -1,14 +1,14 @@
-export async function getSession(): Promise<{ authed: boolean }> {
+export async function getSession(): Promise<{ authenticated: boolean }> {
   try {
     const resp = await fetch('/api/session', { credentials: 'include' });
-    if (!resp.ok) return { authed: false };
+    if (!resp.ok) return { authenticated: false };
     try {
       return await resp.json();
     } catch {
-      return { authed: false };
+      return { authenticated: false };
     }
   } catch {
-    return { authed: false };
+    return { authenticated: false };
   }
 }
 

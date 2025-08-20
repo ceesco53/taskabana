@@ -164,14 +164,16 @@ app.post('/auth/logout', (req, res) => {
 
 // ----- session & userinfo -----
 app.get('/api/session', (req, res) => {
-  const authed = !!req.session?.tokens?.access_token
-  res.json({ authed })
+ // Normalize to a consistent shape the client expects
+ const authenticated = !!req.session?.tokens?.access_token
+ // Always return 200 with a clear flag; avoid 500s for unauth cases
+ res.status(200).json({ authenticated })
 })
 
 app.get('/api/userinfo', async (req, res, next) => {
   try {
     const tokens = req.session?.tokens
-    if (!tokens?.access_token) return res.status(401).json({ error: 'Not authed' })
+    if (!tokens?.access_token) return res.status(401).json({ error: 'Not authenticated' })
     const r = await axios.get(OIDC_USERINFO, {
       headers: { Authorization: `Bearer ${tokens.access_token}` }
     })
@@ -183,7 +185,7 @@ app.get('/api/userinfo', async (req, res, next) => {
 function requireAuth(req, res) {
   const tokens = req.session?.tokens
   if (!tokens?.access_token) {
-    res.status(401).json({ error: 'Not authed' })
+    res.status(401).json({ error: 'Not authenticated' })
     return null
   }
   return tokens

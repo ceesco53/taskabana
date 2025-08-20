@@ -8,7 +8,9 @@ import Brand from './components/Brand'
 import { useRememberedTaskList } from "./hooks/useRememberedTaskList"; // adjust path if needed
 import SearchBar from './components/SearchBar'
 import { filterTasks } from './utils/search'
-
+// Heartbeat modal (new)
+import { useAuthHeartbeat } from './hooks/useAuthHeartbeat'
+import AuthGateModal from './components/AuthGateModal'
 
 // theme helpers
 type ThemeKey = 'light' | 'dark' | 'hc'
@@ -72,7 +74,7 @@ export default function App() {
   React.useEffect(() => { applyTheme(theme) }, [theme])
 
   // ---- session + lists ----
-  const [authed, setAuthed] = React.useState(false)
+  const [authenticated, setAuthed] = React.useState(false)
   const [tasklists, setTasklists] = React.useState<{ id: string; title: string }[]>([])
   const [listId, setListId] = React.useState<string | null>(null)
 
@@ -91,6 +93,47 @@ export default function App() {
   const [serverDown, setServerDown] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
 
+  const [session, setSession] = React.useState<any | null>(null);
+  const [sessionLoading, setSessionLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/session', { credentials: 'include' });
+        const j = r.ok ? await r.json() : { authenticated: false };
+        if (!cancelled) setSession(j);
+      } catch {
+        if (!cancelled) setSession({ authenticated: false });
+      } finally {
+        if (!cancelled) setSessionLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // authenticated flag
+  const serverAuthed =
+    (session && typeof session === 'object' && (
+      ('authenticated' in session && !!session.authenticated) 
+    )) || false;
+
+  // If you use the heartbeat hook:
+  const { authDown, recheck } = useAuthHeartbeat({
+    intervalMs: 30000,
+    failThreshold: 2,
+    pauseWhenHidden: true,
+    successPredicate: (j: any) => {
+      if (!j || typeof j !== 'object') return false;
+      if ('authenticated' in j) return !!j.authenticated;
+      return false;
+    },
+  });
+
+  // Final decision: only treat user as signed out if server says not authenticated
+  // OR the heartbeat currently detects a down/expired session.
+  const effectiveAuthed = serverAuthed && !authDown;
+
   // expose list for helpers used inside TaskCard
   React.useEffect(() => {
     ;(window as any).CURRENT_LIST_ID = listId || ''
@@ -106,10 +149,11 @@ export default function App() {
         setServerDown(true)
       }
 
-      const session = await getSession()
-      setAuthed(session.authed)
+      const sessionRes = await getSession()
+      const isAuthed = !!(sessionRes?.authenticated)
+      setAuthed(isAuthed)
 
-      if (session.authed) {
+      if (isAuthed) {
         const lists = await getTaskLists()
         const items = (lists.items || []) as any[]
         setTasklists(items.map((x) => ({ id: x.id, title: x.title })))
@@ -119,10 +163,10 @@ export default function App() {
   }, [])
 
   React.useEffect(() => {
-    if (!authed || !listId) return
+    if (!effectiveAuthed || !listId) return
     refreshTasks()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authed, listId])
+  }, [effectiveAuthed, listId])
 
   // remember last selected task list
   const [me, setMe] = useState<{ email: string | null }>({ email: null });
@@ -154,7 +198,7 @@ export default function App() {
     try {
       const ok = await pingServer()
       setServerDown(!ok)
-      if (ok && authed && listId) await refreshTasks()
+      if (ok && authenticated && listId) await refreshTasks()
     } catch {
       setServerDown(true)
     } finally {
@@ -344,22 +388,16 @@ export default function App() {
     }
   }
 
-  // ---- UI ----
-  if (!authed) {
+  // optional: show a tiny loading state while the initial session probe runs
+  if (sessionLoading) {
+    return <div className="loading" style={{ padding: 16 }}>Loading…</div>
+  }
+
+  if (!effectiveAuthed) {
     return (
-      <div style={{ padding: 24 }}>
-        {serverDown && (
-          <div style={{ marginBottom: 12, padding: 12, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--card)' }}>
-            <strong>Can’t reach server.</strong>
-            <div style={{ marginTop: 6 }}>
-              <button className="btn" onClick={retryServer} disabled={busy}>{busy ? 'Retrying…' : 'Retry'}</button>
-            </div>
-          </div>
-        )}
-        <h2>Google Tasks Kanban</h2>
-        <p>Sign in to continue.</p>
-        <a className="btn primary" href="/auth/login">Sign in with Google</a>
-      </div>
+      <>
+        <AuthGateModal open={!!authDown} onClose={() => recheck()} />
+      </>
     )
   }
 
@@ -386,6 +424,7 @@ export default function App() {
         borderRadius: 14,
         background: 'var(--surface)',
       }}>
+
         {/* Left: App title (or your logo) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Brand size={28} showWordmark />
